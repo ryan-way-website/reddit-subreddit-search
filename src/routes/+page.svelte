@@ -7,8 +7,14 @@
   type Event<T> = { detail: T };
 
   let breadCrumbs: string[] = [];
+  subreddit.subscribe((val) => {
+    console.log(val);
+    breadCrumbs = [...breadCrumbs, val];
+  });
 
-  let search: string = '';
+  let search = '';
+
+  subreddit.subscribe((val) => (search = val));
 
   function unique<T>(list: T[]): T[] {
     return [...new Set([...list]).values()];
@@ -44,59 +50,54 @@
   }
 
   async function onNodeClick(e: Event<Node>) {
-    breadCrumbs = [...breadCrumbs, $subreddit];
     set(e.detail.label);
   }
 
-  async function onBreadCrumbClick(breadCrumb) {
-    breadCrumbs.splice(breadCrumbs.indexOf(breadCrumb), 1);
+  async function onBreadCrumbClick(idx: number) {
+    const breadCrumb = breadCrumbs[idx];
+    if (breadCrumb === $subreddit) return;
+    breadCrumbs.splice(idx);
     breadCrumbs = [...breadCrumbs];
     set(breadCrumb);
   }
 </script>
 
-<span>
-  <label>Search:</label>
-  <input type="text" placeholder={$subreddit} bind:value={search} />
-  <button on:click={onClick}>Go</button>
-</span>
-
-<div>
-  {#await $posts}
-    <p>...loading</p>
-  {:then posts}
-    <Graph {graphData} on:onNodeClick={onNodeClick} />
-    <bread-crumb>
-      {#each breadCrumbs as breadCrumb}
-        <span
-          on:click={() => {
-            onBreadCrumbClick(breadCrumb);
-          }}>{breadCrumb}</span
-        >
-      {/each}
-    </bread-crumb>
-  {:catch}
-    ERROR!
-  {/await}
+<div class="navbar bg-neutral text-primary-content">
+  <div class="navbar-start" />
+  <div class="navbar-center">
+    <input
+      class="input input-bordered input-primary max-w-xs mx-5"
+      type="text"
+      bind:value={search}
+    />
+    <button class="btn btn-primary" on:click={onClick}>Go</button>
+  </div>
+  <div class="navbar-end" />
 </div>
 
-<style lang="postcss">
-  h1 {
-    @apply m-20;
-    @apply text-3xl;
-  }
-  p {
-    @apply text-2xl;
-  }
-  div {
-    border-color: black;
-    border-width: 1px;
-    height: 100%;
-    width: 100%;
-  }
+<div class="text-sm breadcrumbs">
+  <ul>
+    {#each breadCrumbs as breadCrumb, idx}
+      <li
+        on:click={() => {
+          onBreadCrumbClick(idx);
+        }}
+      >
+        {breadCrumb}
+      </li>
+    {/each}
+  </ul>
+</div>
 
-  label {
-    margin-left: 10px;
-    margin-right: 10px;
-  }
+{#await $posts}
+  <div class="w-full flex items-center justify-center" style="height: 1000px">
+    <span class="loading loading-spinner loading-lg" />
+  </div>
+{:then posts}
+  <Graph {graphData} on:onNodeClick={onNodeClick} />
+{:catch}
+  ERROR!
+{/await}
+
+<style lang="postcss">
 </style>

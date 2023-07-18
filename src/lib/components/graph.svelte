@@ -36,8 +36,7 @@
     if (graph && graphData) {
       myGraph = ForceGraph()(graph)
         .graphData(graphData)
-        .height(800)
-        .width(1200)
+        .height(1000)
         .nodeAutoColorBy('group')
         .nodeCanvasObject((node, ctx, globalScale) => nodePaint(node, '', ctx, globalScale))
         .nodePointerAreaPaint((node, color, ctx) => {
