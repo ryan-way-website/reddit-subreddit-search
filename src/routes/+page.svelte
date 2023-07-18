@@ -1,67 +1,102 @@
 <script lang="ts">
-  const endpoint = 'https://oauth.reddit.com/';
+  import { update, set, subreddit, posts } from '$lib/stores';
+  import { type Post } from '$lib/stores';
+  import { type Node, type Link, type GraphData } from '$lib/types';
+  import Graph from '$lib/components/graph.svelte';
 
-  enum Endpoint {
-    Me = `${endpoint}api/v1/me`,
-    Scope = `${endpoint}api/v1/scopes`,
-    Trophies = `${endpoint}api/v1/user/pocket_leper/trophies`,
-    Subreddit = `${endpoint}r/askreddit/about`,
-    SubredditHot = `${endpoint}r/askreddit/hot`,
-    SubredditBest = `${endpoint}r/askreddit/best`,
-  }
-  async function fetchAccessToken() {
-    const client_id = 'fEa8R-rPf6QEWZHxlvRcGA';
-    const secret = 'JWK8RzrT9zJrgwXhnv8OGQgqUYDCWA';
-    const reddit_auth_url = 'https://www.reddit.com/api/v1/access_token';
+  type Event<T> = { detail: T };
 
-    const headers = new Headers();
-    headers.append('Authorization', 'Basic ' + btoa(`${client_id}:${secret}`));
-    headers.append('Content-Type', 'application/x-www-form-urlencoded');
+  let breadCrumbs: string[] = [];
 
-    const opts = {
-      method: 'POST',
-      headers,
-      body: 'grant_type=client_credentials',
-    };
+  let search: string = '';
 
-    return fetch(reddit_auth_url, opts)
-      .then((res) => {
-        return res.json();
-      })
-      .then((json) => {
-        return json.access_token;
-      });
+  function unique<T>(list: T[]): T[] {
+    return [...new Set([...list]).values()];
   }
 
-  async function fetchData(access_token: string) {
-    const endpoint = Endpoint.SubredditBest;
-    const headers = new Headers();
-    headers.append('Authorization', `bearer ${access_token}`);
-    const opts = {
-      method: 'GET',
-      headers,
-    };
-    return fetch(endpoint, opts);
-  }
-
-  const response = fetchAccessToken().then(async (access_token) => {
-    const body = await fetchData(access_token).then((res) => {
-      return res.json();
+  let graphData: GraphData;
+  posts.subscribe(async (resp) => {
+    const data = await resp;
+    const linkedSubreddits = unique(data.map((post: Post) => post.crossPostedTo));
+    const nodes = [$subreddit, ...linkedSubreddits].map((sub, index) => {
+      return {
+        id: index,
+        label: sub,
+        group: index,
+      };
     });
-    console.log('Data: ', body.data);
-    return body.data;
+    const links = linkedSubreddits.map((sub, index) => {
+      return {
+        source: index + 1,
+        target: 0,
+      };
+    });
+
+    graphData = {
+      nodes,
+      links,
+    };
   });
+
+  async function onClick() {
+    breadCrumbs = [...breadCrumbs, $subreddit];
+    set(search);
+  }
+
+  async function onNodeClick(e: Event<Node>) {
+    breadCrumbs = [...breadCrumbs, $subreddit];
+    set(e.detail.label);
+  }
+
+  async function onBreadCrumbClick(breadCrumb) {
+    breadCrumbs.splice(breadCrumbs.indexOf(breadCrumb), 1);
+    breadCrumbs = [...breadCrumbs];
+    set(breadCrumb);
+  }
 </script>
 
-<h1 class="text-3xl font-bold underline my-20">Hello World!</h1>
+<span>
+  <label>Search:</label>
+  <input type="text" placeholder={$subreddit} bind:value={search} />
+  <button on:click={onClick}>Go</button>
+</span>
 
-{#await response}
-  ..loading
-{:then data}
-  {JSON.stringify(data)}
-{:catch err}
-  ERROR: {err}
-{/await}
+<div>
+  {#await $posts}
+    <p>...loading</p>
+  {:then posts}
+    <Graph {graphData} on:onNodeClick={onNodeClick} />
+    <bread-crumb>
+      {#each breadCrumbs as breadCrumb}
+        <span
+          on:click={() => {
+            onBreadCrumbClick(breadCrumb);
+          }}>{breadCrumb}</span
+        >
+      {/each}
+    </bread-crumb>
+  {:catch}
+    ERROR!
+  {/await}
+</div>
 
 <style lang="postcss">
+  h1 {
+    @apply m-20;
+    @apply text-3xl;
+  }
+  p {
+    @apply text-2xl;
+  }
+  div {
+    border-color: black;
+    border-width: 1px;
+    height: 100%;
+    width: 100%;
+  }
+
+  label {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
 </style>
