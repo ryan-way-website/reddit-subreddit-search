@@ -9,4 +9,6 @@ declare global {
   }
 }
 
+declare const window;
+
 export {};
