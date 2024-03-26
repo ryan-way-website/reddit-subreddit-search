@@ -1,6 +1,6 @@
 <script lang="ts">
   import ForceGraph, { type LinkObject, type NodeObject } from 'force-graph';
-  import { type GraphData, type Node } from '$lib/types';
+  import type { GraphData, Node } from '$lib/types';
   import { createEventDispatcher } from 'svelte';
 
   const dispatch = createEventDispatcher();

@@ -1,6 +1,8 @@
 import { getTopSubredditPostsEndpoint } from '$lib/constants';
 import { writable, derived } from 'svelte/store';
-import { getAccessToken } from './auth';
+import { getAccessToken } from '../auth';
+import { cached } from '../utils';
+import type { Post } from '$lib/types';
 
 type Data<T> = {
   data: T;
@@ -22,19 +24,21 @@ type Subreddit = {
 
 type SubredditListing = Data<Subreddit>;
 
-function fetchData(endpoint: string, access_token: string) {
+async function fetchRedditData(endpoint: string, access_token: string) {
   const headers = new Headers();
   headers.append('Authorization', `bearer ${access_token}`);
   const opts = {
     method: 'GET',
     headers,
   };
-  return fetch(endpoint, opts);
+
+  return cached<SubredditListing>(endpoint, async (key) => {
+    return fetch(key, opts).then((result) => result.json()).then((result) => result as SubredditListing);
+  });
 }
 
-export type Post = { title: string; subreddit: string; crossPostedTo: string };
 
-function mapPostData(post: Data<PostData>): Post {
+function parsePostData(post: Data<PostData>): Post {
   const { data } = post;
   const title = data.title;
   const subreddit = data.subreddit;
@@ -49,15 +53,15 @@ function mapPostData(post: Data<PostData>): Post {
   };
 }
 
-function isValidPostData(postData: Data<PostData>): boolean {
-  return postData.data.crosspost_parent_list !== undefined;
+function isCrossPost(postData: Data<PostData>): boolean {
+  return postData.data.crosspost_parent_list !== undefined && postData.data.crosspost_parent_list.length > 0;
 }
 
-function processData(listing: SubredditListing): Post[] {
-  const { children } = listing.data;
+function parseListingData(listingData: SubredditListing): Post[] {
+  const { children } = listingData.data;
   return children
-    .filter((postData) => isValidPostData(postData))
-    .map((postData) => mapPostData(postData));
+    .filter(isCrossPost)
+    .map(parsePostData);
 }
 
 const subredditStore = writable('SweatyPalms');
@@ -65,14 +69,14 @@ const postsStore = derived(
   subredditStore,
   (subreddit: string, set) => {
     const endpoint = getTopSubredditPostsEndpoint(subreddit);
-    set(
-      getAccessToken()
-        .then((accessToken) => fetchData(endpoint, accessToken))
-        .then((res) => res.json())
-        .then((json: SubredditListing) => processData(json)),
-    );
+    const result = getAccessToken()
+    .then(async (accessToken) => {
+      const listingData = await fetchRedditData(endpoint, accessToken);
+      return parseListingData(listingData);
+    });
+    set(result);
   },
-  [],
+  Promise.resolve([] as Post[]),
 );
 
 export const update = subredditStore.update;

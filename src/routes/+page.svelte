@@ -1,48 +1,23 @@
 <script lang="ts">
-  import { update, set, subreddit, posts } from '$lib/stores';
-  import { type Post } from '$lib/stores';
-  import { type Node, type Link, type GraphData } from '$lib/types';
+  import { set, subreddit, posts as postStore } from '$lib/stores/reddit.ts';
+  import type { Node, GraphData, Post } from '$lib/types';
   import Graph from '$lib/components/graph.svelte';
+  import { getGraphdataStore } from './page';
 
   type Event<T> = { detail: T };
 
   let breadCrumbs: string[] = [];
-  subreddit.subscribe((val) => {
-    console.log(val);
-    breadCrumbs = [...breadCrumbs, val];
-  });
+
+  $: {
+    console.log('Subreddit change:', $subreddit);
+    breadCrumbs = [...breadCrumbs, $subreddit];
+  }
 
   let search = '';
 
   subreddit.subscribe((val) => (search = val));
 
-  function unique<T>(list: T[]): T[] {
-    return [...new Set([...list]).values()];
-  }
-
-  let graphData: GraphData;
-  posts.subscribe(async (resp) => {
-    const data = await resp;
-    const linkedSubreddits = unique(data.map((post: Post) => post.crossPostedTo));
-    const nodes = [$subreddit, ...linkedSubreddits].map((sub, index) => {
-      return {
-        id: index,
-        label: sub,
-        group: index,
-      };
-    });
-    const links = linkedSubreddits.map((sub, index) => {
-      return {
-        source: index + 1,
-        target: 0,
-      };
-    });
-
-    graphData = {
-      nodes,
-      links,
-    };
-  });
+  let graphData = getGraphdataStore(postStore, subreddit);
 
   async function onClick() {
     breadCrumbs = [...breadCrumbs, $subreddit];
@@ -50,6 +25,7 @@
   }
 
   async function onNodeClick(e: Event<Node>) {
+    console.log('Event:', JSON.stringify(e));
     set(e.detail.label);
   }
 
@@ -89,12 +65,12 @@
   </ul>
 </div>
 
-{#await $posts}
+{#await $postStore}
   <div class="w-full flex items-center justify-center" style="height: 1000px">
     <span class="loading loading-spinner loading-lg" />
   </div>
-{:then posts}
-  <Graph {graphData} on:onNodeClick={onNodeClick} />
+{:then _}
+  <Graph graphData={$graphData} on:onNodeClick={onNodeClick} />
 {:catch}
   ERROR!
 {/await}
