@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
 interface CacheItem {
   data: any;
@@ -9,17 +9,17 @@ const map: Map<string, CacheItem> = new Map();
 
 export async function cached<T>(key: string, fn: (key: string) => Promise<T>): Promise<T> {
   let cacheItem = map.get(key);
-  
+
   if (cacheItem && cacheItem.date > DateTime.now().toISO()) {
-      return Promise.resolve(cacheItem.data as T);
+    return Promise.resolve(cacheItem.data as T);
   }
 
   const result = await fn(key);
-  
- cacheItem = {
+
+  cacheItem = {
     data: result,
-    date: DateTime.now().plus({minutes: 1}).toISO(),
-  }
+    date: DateTime.now().plus({ minutes: 1 }).toISO(),
+  };
 
   map.set(key, cacheItem);
 

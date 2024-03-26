@@ -33,10 +33,11 @@ async function fetchRedditData(endpoint: string, access_token: string) {
   };
 
   return cached<SubredditListing>(endpoint, async (key) => {
-    return fetch(key, opts).then((result) => result.json()).then((result) => result as SubredditListing);
+    return fetch(key, opts)
+      .then((result) => result.json())
+      .then((result) => result as SubredditListing);
   });
 }
-
 
 function parsePostData(post: Data<PostData>): Post {
   const { data } = post;
@@ -54,14 +55,15 @@ function parsePostData(post: Data<PostData>): Post {
 }
 
 function isCrossPost(postData: Data<PostData>): boolean {
-  return postData.data.crosspost_parent_list !== undefined && postData.data.crosspost_parent_list.length > 0;
+  return (
+    postData.data.crosspost_parent_list !== undefined &&
+    postData.data.crosspost_parent_list.length > 0
+  );
 }
 
 function parseListingData(listingData: SubredditListing): Post[] {
   const { children } = listingData.data;
-  return children
-    .filter(isCrossPost)
-    .map(parsePostData);
+  return children.filter(isCrossPost).map(parsePostData);
 }
 
 const subredditStore = writable('SweatyPalms');
@@ -69,8 +71,7 @@ const postsStore = derived(
   subredditStore,
   (subreddit: string, set) => {
     const endpoint = getTopSubredditPostsEndpoint(subreddit);
-    const result = getAccessToken()
-    .then(async (accessToken) => {
+    const result = getAccessToken().then(async (accessToken) => {
       const listingData = await fetchRedditData(endpoint, accessToken);
       return parseListingData(listingData);
     });
